@@ -4,6 +4,7 @@ import SwiftUI
 struct LessonTopBar: View {
     let title: String
     let currentSegment: Int
+    let segmentCount: Int
     let onBack: () -> Void
     let onClose: () -> Void
 
@@ -16,7 +17,7 @@ struct LessonTopBar: View {
                 .lineLimit(1)
                 .padding(.leading, 12)
             Spacer(minLength: 16)
-            SegmentedProgressBar(current: currentSegment)
+            SegmentedProgressBar(current: currentSegment, segmentCount: segmentCount)
                 .padding(.trailing, 16)
             GlassIconButton(systemImage: "xmark", label: "Close", action: onClose)
         }
@@ -44,7 +45,7 @@ private struct GlassIconButton: View {
 }
 
 #Preview(traits: .landscapeLeft) {
-    LessonTopBar(title: "1.1  Tempo and Beats", currentSegment: 3, onBack: {}, onClose: {})
+    LessonTopBar(title: "1.1  Tempo and Beats", currentSegment: 3, segmentCount: 8, onBack: {}, onClose: {})
         .padding(.horizontal)
         .frame(maxHeight: .infinity, alignment: .top)
         .background(AppColor.background)
