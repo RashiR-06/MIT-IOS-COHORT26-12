@@ -8,6 +8,7 @@ final class LessonViewModel {
     private(set) var stepIndex = 0
     /// True once the learner has left or finished the lesson.
     private(set) var hasExited = false
+    private(set) var showCompletePopup = false
     var showLeaveAlert = false
 
     init(content: LessonContent) {
@@ -18,16 +19,21 @@ final class LessonViewModel {
         content.steps[stepIndex]
     }
 
+    /// Each step lights one more segment; the last step fills the bar.
     var progress: Int {
-        currentStep.progressSegments
+        stepIndex + 1
     }
 
-    /// Next step, or exit after the last step.
+    var segmentCount: Int {
+        content.steps.count
+    }
+
+    /// Next step, or the "Lesson complete" pop-up after the last step.
     func next() {
         if stepIndex < content.steps.count - 1 {
             stepIndex += 1
         } else {
-            hasExited = true
+            showCompletePopup = true
         }
     }
 
@@ -45,6 +51,11 @@ final class LessonViewModel {
     }
 
     func leave() {
+        hasExited = true
+    }
+
+    /// Either pop-up button. Both go to the temporary blank screen for now.
+    func finish() {
         hasExited = true
     }
 }

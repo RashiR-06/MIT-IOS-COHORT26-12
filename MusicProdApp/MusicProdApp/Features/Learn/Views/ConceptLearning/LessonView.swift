@@ -10,6 +10,7 @@ struct LessonView: View {
             LessonTopBar(
                 title: viewModel.content.title,
                 currentSegment: viewModel.progress,
+                segmentCount: viewModel.segmentCount,
                 onBack: viewModel.back,
                 onClose: viewModel.close
             )
@@ -26,9 +27,14 @@ struct LessonView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(AppColor.background)
+        .overlay {
+            if viewModel.showCompletePopup {
+                LessonCompletePopup(onBackToStudio: viewModel.finish, onNextLesson: viewModel.finish)
+            }
+        }
         .alert("Leave the lesson?", isPresented: $viewModel.showLeaveAlert) {
             Button("Stay", role: .cancel) {}
-            Button("Leave", action: viewModel.leave)
+            Button("Leave", role: .destructive, action: viewModel.leave)
         }
     }
 }
