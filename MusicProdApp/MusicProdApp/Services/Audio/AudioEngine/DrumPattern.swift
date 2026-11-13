@@ -21,31 +21,12 @@ struct DrumPattern {
 }
 
 extension DrumPattern {
-    /// The Lesson 1.1 groove used in Learn and Do. Matches
-    /// docs/lesson-1.1/audio/ref_groove_100bpm.wav: kick on 1 and 3,
-    /// snare on 2 and 4, closed hat on every eighth with softer off-beats.
+    /// The Lesson 1.1 groove, used in Learn and Do. Matched to
+    /// docs/lesson-1.1/audio/ref_groove_100bpm.wav: kick on 1 and 3, snare
+    /// on 2 and 4, closed hat on the off-beats (the "and" between beats) at
+    /// full volume. Compared against the reference by mixing our three
+    /// samples and measuring each eighth note.
     static let lessonGroove: DrumPattern = {
-        let kick = DrumHit(sound: .kick, volume: 1)
-        let snare = DrumHit(sound: .snare, volume: 1)
-        let hat = DrumHit(sound: .hatClosed, volume: 1)
-        let softHat = DrumHit(sound: .hatClosed, volume: 0.43)
-        return DrumPattern(steps: [
-            [kick, hat],    // 1
-            [softHat],      // 1 and
-            [snare, hat],   // 2
-            [softHat],      // 2 and
-            [kick, hat],    // 3
-            [softHat],      // 3 and
-            [snare, hat],   // 4
-            [softHat],      // 4 and
-        ])
-    }()
-
-    /// The Intro groove, matched to docs/lesson-1.1/audio/ref_groove_100bpm.wav:
-    /// kick on 1 and 3, snare on 2 and 4, closed hat on the off-beats (the
-    /// "and" between beats) at full volume. Compared against the reference
-    /// by mixing our three samples and measuring each eighth note.
-    static let introGroove: DrumPattern = {
         let kick = DrumHit(sound: .kick, volume: 1)
         let snare = DrumHit(sound: .snare, volume: 1)
         let hat = DrumHit(sound: .hatClosed, volume: 1)
@@ -60,4 +41,8 @@ extension DrumPattern {
             [hat],      // 4 and
         ])
     }()
+
+    /// The Intro plays the same groove as the rest of the lesson; it then
+    /// slows it down (see IntroTiming).
+    static let introGroove = lessonGroove
 }
