@@ -41,20 +41,23 @@ extension DrumPattern {
         ])
     }()
 
-    /// The Intro groove from the Intro mockup: 16 sixteenth-note steps.
-    /// Kick on steps 0, 8 and 10, snare on 4 and 12, closed hat on every
-    /// step with the odd (in-between) steps softer.
+    /// The Intro groove, matched to docs/lesson-1.1/audio/ref_groove_100bpm.wav:
+    /// kick on 1 and 3, snare on 2 and 4, closed hat on the off-beats (the
+    /// "and" between beats) at full volume. Compared against the reference
+    /// by mixing our three samples and measuring each eighth note.
     static let introGroove: DrumPattern = {
         let kick = DrumHit(sound: .kick, volume: 1)
         let snare = DrumHit(sound: .snare, volume: 1)
         let hat = DrumHit(sound: .hatClosed, volume: 1)
-        let softHat = DrumHit(sound: .hatClosed, volume: 0.375)
-        let steps = (0..<16).map { step -> [DrumHit] in
-            var hits = [step % 2 == 0 ? hat : softHat]
-            if [0, 8, 10].contains(step) { hits.append(kick) }
-            if [4, 12].contains(step) { hits.append(snare) }
-            return hits
-        }
-        return DrumPattern(steps: steps, stepsPerBeat: 4)
+        return DrumPattern(steps: [
+            [kick],     // 1
+            [hat],      // 1 and
+            [snare],    // 2
+            [hat],      // 2 and
+            [kick],     // 3
+            [hat],      // 3 and
+            [snare],    // 4
+            [hat],      // 4 and
+        ])
     }()
 }

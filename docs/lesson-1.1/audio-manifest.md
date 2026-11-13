@@ -31,6 +31,18 @@ The sample rates differ on purpose: `DrumSampleLoader` loads each file in its ow
 
 "Soft" hats play at 43% volume. This matches the reference WAV and the Learn mockup. The Do/Finale mockups add a soft kick on 3&; that is deliberately not used.
 
+## The Intro groove (`DrumPattern.introGroove`)
+
+Matched to `ref_groove_100bpm.wav` by mixing our three samples and comparing each eighth note:
+
+| Step | 1 | 1& | 2 | 2& | 3 | 3& | 4 | 4& |
+|---|---|---|---|---|---|---|---|---|
+| Kick | ● | | | | ● | | | |
+| Snare | | | ● | | | | ● | |
+| Closed hat | | ● | | ● | | ● | | ● |
+
+Hats on the off-beats only, at full volume. The reference has no sound on the sixteenths in between and no kick on 3&. The Intro then slows from 100 to 52 BPM with lower pitch and a closing low-pass filter (see `IntroTiming`).
+
 ## Mockups
 
 The HTML mockups are in `docs/lesson-1.1/` (not a `mockups/` subfolder): `intro_track_breaks_no_bar.html`, `learn_three_cards_mockup.html`, `do_section_three_activities_mockup.html`, `lesson_finale_tap_only_mockup.html`.
