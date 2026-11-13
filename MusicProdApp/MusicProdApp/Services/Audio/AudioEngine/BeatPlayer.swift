@@ -45,7 +45,8 @@ final class BeatPlayer: BeatPlaying {
     // Loop state.
     @ObservationIgnored private var pattern = DrumPattern.lessonGroove
     @ObservationIgnored private var nextStepNumber = 0
-    @ObservationIgnored private var nextStepSeconds: TimeInterval = 0
+    /// Time of the most recently queued step, or nil before the first one.
+    @ObservationIgnored private var lastQueuedSeconds: TimeInterval?
     /// The most recent queued steps and their exact times, used to work out
     /// the playhead position between steps.
     @ObservationIgnored private var stepTimes: [(step: Int, seconds: TimeInterval)] = []
@@ -121,7 +122,7 @@ final class BeatPlayer: BeatPlaying {
         self.pattern = pattern
         self.bpm = Self.clamped(bpm)
         nextStepNumber = 0
-        nextStepSeconds = 0
+        lastQueuedSeconds = nil
         stepTimes = []
         loopID += 1
         isLooping = true
@@ -135,7 +136,7 @@ final class BeatPlayer: BeatPlaying {
             node.play(at: startTime)
         }
 
-        fillQueue(after: 0)
+        fillQueue(afterStep: -1, at: 0)
     }
 
     func setTempo(_ bpm: Double) {
@@ -158,8 +159,9 @@ final class BeatPlayer: BeatPlaying {
     /// Queues every hit of the next step, plus a clock tick, at the step's
     /// exact time on the audio clock.
     private func scheduleNextStep() {
-        let step = nextStepNumber % pattern.steps.count
-        let seconds = nextStepSeconds
+        let stepNumber = nextStepNumber
+        let step = stepNumber % pattern.steps.count
+        let seconds = upcomingStepSeconds
 
         for hit in pattern.steps[step] {
             guard let buffer = sample(hit.sound, volume: hit.volume),
@@ -175,29 +177,41 @@ final class BeatPlayer: BeatPlaying {
                                      completionCallbackType: .dataRendered) { [weak self] _ in
                 // Arrives on an audio thread; hop to the main thread.
                 guard let self else { return }
-                Task { @MainActor in self.tickWasRendered(step: step, at: seconds, loopID: id) }
+                Task { @MainActor in
+                    self.tickWasRendered(stepNumber: stepNumber, step: step, at: seconds, loopID: id)
+                }
             }
         }
 
-        stepTimes.append((step: nextStepNumber, seconds: seconds))
+        stepTimes.append((step: stepNumber, seconds: seconds))
         if stepTimes.count > 32 { stepTimes.removeFirst() }
 
         nextStepNumber += 1
-        nextStepSeconds += pattern.stepDuration(bpm: bpm)
+        lastQueuedSeconds = seconds
     }
 
-    private func tickWasRendered(step: Int, at seconds: TimeInterval, loopID id: Int) {
+    /// When the next step would play: one step (at today's tempo) after the
+    /// last queued step. Worked out at queue time, so a new tempo always
+    /// starts at the next step that is not queued yet.
+    private var upcomingStepSeconds: TimeInterval {
+        guard let last = lastQueuedSeconds else { return 0 }
+        return last + pattern.stepDuration(bpm: bpm)
+    }
+
+    private func tickWasRendered(stepNumber: Int, step: Int, at seconds: TimeInterval, loopID id: Int) {
         guard isLooping, id == loopID else { return }
         currentStep = step
         onStep?(step)
-        fillQueue(after: seconds)
+        fillQueue(afterStep: stepNumber, at: seconds)
     }
 
-    /// Queues steps until one step plus the safety margin past `seconds`
-    /// (the time of the step just rendered). Uses the current tempo.
-    private func fillQueue(after seconds: TimeInterval) {
+    /// Tops the queue up after a step has been rendered. Two rules:
+    /// 1. Always keep at least one step queued after it, so the ticks (and
+    ///    the loop) can never run out, even after a big tempo jump.
+    /// 2. Keep about one step plus the safety margin of drums queued.
+    private func fillQueue(afterStep stepNumber: Int, at seconds: TimeInterval) {
         let horizon = seconds + pattern.stepDuration(bpm: bpm) + Self.safetyMargin
-        while nextStepSeconds < horizon {
+        while nextStepNumber <= stepNumber + 1 || upcomingStepSeconds < horizon {
             scheduleNextStep()
         }
     }
