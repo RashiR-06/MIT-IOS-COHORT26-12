@@ -19,9 +19,9 @@ final class IntroViewModel {
     var isPlaying: Bool { beatPlayer.isLooping && !beatPlayer.isPaused }
     var playheadBeats: Double? { beatPlayer.playheadBeats }
 
-    /// The Intro has just appeared: the drums start by themselves shortly after.
+    /// The Intro has just appeared: the drums start by themselves 2 s later.
     func start() {
-        restart(after: 0.5)
+        restart(after: 2)
     }
 
     /// Pause freezes everything; Play carries on from the same spot. If the

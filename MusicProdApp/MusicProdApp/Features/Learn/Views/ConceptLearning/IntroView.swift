@@ -28,13 +28,21 @@ struct IntroView: View {
             .padding(.top, 3)
             .opacity(viewModel.phase == .steady ? 0 : 1)
 
-            // Redrawn every screen refresh; the position comes from the audio clock.
-            TimelineView(.animation(paused: !viewModel.isPlaying)) { _ in
-                DrumLaneView(pattern: .introGroove,
-                             position: viewModel.playheadBeats ?? 0,
-                             style: .intro,
-                             tint: AppColor.accentCyan.mix(with: AppColor.accentPink, by: viewModel.slowdownProgress))
+            // The lane runs edge to edge (past the safe area) to feel full;
+            // its playhead and label are moved in by the safe-area width so
+            // they stay inside it. Redrawn every screen refresh; the
+            // position comes from the audio clock.
+            GeometryReader { geometry in
+                TimelineView(.animation(paused: !viewModel.isPlaying)) { _ in
+                    DrumLaneView(pattern: .introGroove,
+                                 position: viewModel.playheadBeats ?? 0,
+                                 style: .intro,
+                                 tint: AppColor.accentCyan.mix(with: AppColor.accentPink, by: viewModel.slowdownProgress),
+                                 leadingInset: geometry.safeAreaInsets.leading)
+                }
             }
+            .ignoresSafeArea(edges: .horizontal)
+            .frame(height: DrumLaneStyle.intro.height)
             .padding(.top, 8)
 
             Spacer(minLength: 11)
