@@ -4,23 +4,30 @@ import Observation
 /// Plays drum samples and loops patterns on one AVAudioEngine.
 ///
 /// How the loop stays in time: every hit is given an exact sample time on
-/// the audio clock before it plays (step n plays at n × step length). A
-/// silent "clock" node also plays a tick on every step. When a tick has
-/// been heard, we publish the step and queue the hits a few steps ahead.
-/// Those callbacks only add future hits; they never decide when a hit
-/// plays, so a late callback cannot make the beat drift.
+/// the audio clock before it plays. Each step's time is the previous step's
+/// time plus one step length. A silent "clock" node also plays a tick on
+/// every step. When a tick has been rendered, we publish the step and top
+/// the queue up a little further. Those callbacks only add future hits;
+/// they never decide when a hit plays, so a late callback cannot make the
+/// beat drift.
+///
+/// Changing tempo: setTempo only changes the step length used for steps not
+/// queued yet. Queued hits keep their times, so the new tempo starts at the
+/// next step boundary with no stop, gap or double hit.
 @Observable
 final class BeatPlayer: BeatPlaying {
     private(set) var isLooping = false
     private(set) var currentStep: Int?
+    private(set) var bpm = 100.0
     @ObservationIgnored var onStep: ((Int) -> Void)?
 
     var outputLatency: TimeInterval { session.outputLatency }
 
-    /// How many steps are queued ahead of what you hear.
-    private static let lookaheadSteps = 4
+    /// Spare time between topping up the queue and the next hit it adds.
+    /// Small, so tempo changes are heard quickly at any tempo.
+    private static let safetyMargin: TimeInterval = 0.25
     /// A player node plays its buffers one after another, so a drum needs
-    /// a few nodes ("voices") for hits that overlap. 3 covers ~150 BPM.
+    /// a few nodes ("voices") for hits that overlap. 3 covers 160 BPM.
     private static let voicesPerDrum = 3
 
     @ObservationIgnored private let engine = AVAudioEngine()
@@ -37,7 +44,6 @@ final class BeatPlayer: BeatPlaying {
 
     // Loop state.
     @ObservationIgnored private var pattern = DrumPattern.lessonGroove
-    @ObservationIgnored private var bpm = 100.0
     @ObservationIgnored private var nextStepNumber = 0
     @ObservationIgnored private var nextStepSeconds: TimeInterval = 0
     /// Changes on every start and stop, so ticks from an old loop are ignored.
@@ -110,7 +116,7 @@ final class BeatPlayer: BeatPlaying {
         stop()
         guard startEngineIfNeeded(), !pattern.steps.isEmpty else { return }
         self.pattern = pattern
-        self.bpm = bpm
+        self.bpm = Self.clamped(bpm)
         nextStepNumber = 0
         nextStepSeconds = 0
         loopID += 1
@@ -125,9 +131,12 @@ final class BeatPlayer: BeatPlaying {
             node.play(at: startTime)
         }
 
-        for _ in 0..<Self.lookaheadSteps {
-            scheduleNextStep()
-        }
+        fillQueue(after: 0)
+    }
+
+    func setTempo(_ bpm: Double) {
+        // Only the length of steps not queued yet changes; see the class note.
+        self.bpm = Self.clamped(bpm)
     }
 
     func stop() {
@@ -156,11 +165,13 @@ final class BeatPlayer: BeatPlaying {
 
         if let tick = tickBuffer {
             let id = loopID
+            // .dataRendered fires as the tick is produced, before any
+            // Bluetooth delay, so topping up the queue is never held back.
             clockNode.scheduleBuffer(tick, at: Self.time(seconds, rate: tick.format.sampleRate),
-                                     completionCallbackType: .dataPlayedBack) { [weak self] _ in
+                                     completionCallbackType: .dataRendered) { [weak self] _ in
                 // Arrives on an audio thread; hop to the main thread.
                 guard let self else { return }
-                Task { @MainActor in self.tickWasHeard(step: step, loopID: id) }
+                Task { @MainActor in self.tickWasRendered(step: step, at: seconds, loopID: id) }
             }
         }
 
@@ -168,11 +179,24 @@ final class BeatPlayer: BeatPlaying {
         nextStepSeconds += DrumPattern.stepDuration(bpm: bpm)
     }
 
-    private func tickWasHeard(step: Int, loopID id: Int) {
+    private func tickWasRendered(step: Int, at seconds: TimeInterval, loopID id: Int) {
         guard isLooping, id == loopID else { return }
         currentStep = step
         onStep?(step)
-        scheduleNextStep()
+        fillQueue(after: seconds)
+    }
+
+    /// Queues steps until one step plus the safety margin past `seconds`
+    /// (the time of the step just rendered). Uses the current tempo.
+    private func fillQueue(after seconds: TimeInterval) {
+        let horizon = seconds + DrumPattern.stepDuration(bpm: bpm) + Self.safetyMargin
+        while nextStepSeconds < horizon {
+            scheduleNextStep()
+        }
+    }
+
+    private static func clamped(_ bpm: Double) -> Double {
+        min(max(bpm, TempoLimits.range.lowerBound), TempoLimits.range.upperBound)
     }
 
     /// A sample-accurate time on a node's own timeline.
