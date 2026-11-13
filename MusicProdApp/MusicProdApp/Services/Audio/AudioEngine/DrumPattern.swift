@@ -40,4 +40,21 @@ extension DrumPattern {
             [softHat],      // 4 and
         ])
     }()
+
+    /// The Intro groove from the Intro mockup: 16 sixteenth-note steps.
+    /// Kick on steps 0, 8 and 10, snare on 4 and 12, closed hat on every
+    /// step with the odd (in-between) steps softer.
+    static let introGroove: DrumPattern = {
+        let kick = DrumHit(sound: .kick, volume: 1)
+        let snare = DrumHit(sound: .snare, volume: 1)
+        let hat = DrumHit(sound: .hatClosed, volume: 1)
+        let softHat = DrumHit(sound: .hatClosed, volume: 0.375)
+        let steps = (0..<16).map { step -> [DrumHit] in
+            var hits = [step % 2 == 0 ? hat : softHat]
+            if [0, 8, 10].contains(step) { hits.append(kick) }
+            if [4, 12].contains(step) { hits.append(snare) }
+            return hits
+        }
+        return DrumPattern(steps: steps, stepsPerBeat: 4)
+    }()
 }

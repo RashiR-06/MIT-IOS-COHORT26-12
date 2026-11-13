@@ -17,8 +17,10 @@ import Observation
 @Observable
 final class BeatPlayer: BeatPlaying {
     private(set) var isLooping = false
+    private(set) var isPaused = false
     private(set) var currentStep: Int?
     private(set) var bpm = 100.0
+    @ObservationIgnored private(set) var currentStepSeconds: TimeInterval?
     @ObservationIgnored var onStep: ((Int) -> Void)?
 
     var outputLatency: TimeInterval { session.outputLatency }
@@ -41,6 +43,18 @@ final class BeatPlayer: BeatPlaying {
     @ObservationIgnored private var configObserver: NSObjectProtocol?
     /// Audio is set up on first use, not at app launch.
     @ObservationIgnored private var isSetUp = false
+
+    // Drum effects: every drum voice goes through a small bus, then a pitch
+    // shifter and a low-pass filter. Both are bypassed (off) unless a screen
+    // such as the Intro switches them on.
+    @ObservationIgnored private let drumBus = AVAudioMixerNode()
+    /// Changes pitch without changing speed (rate stays 1), so hits keep
+    /// their exact times on the audio clock.
+    @ObservationIgnored private let pitchShift = AVAudioUnitTimePitch()
+    @ObservationIgnored private let lowPass = AVAudioUnitEQ(numberOfBands: 1)
+    private static let openCutoff: Float = 16_000
+    /// Where the playhead stopped when paused, so the lane holds still.
+    @ObservationIgnored private var pausedPlayheadBeats: Double?
 
     // Loop state.
     @ObservationIgnored private var pattern = DrumPattern.lessonGroove
@@ -74,6 +88,16 @@ final class BeatPlayer: BeatPlaying {
         guard !isSetUp else { return }
         isSetUp = true
 
+        // Drum bus → pitch → low-pass → main mixer. Effects start bypassed.
+        let busFormat = engine.mainMixerNode.outputFormat(forBus: 0)
+        [drumBus, pitchShift, lowPass].forEach { engine.attach($0) }
+        engine.connect(drumBus, to: pitchShift, format: busFormat)
+        engine.connect(pitchShift, to: lowPass, format: busFormat)
+        engine.connect(lowPass, to: engine.mainMixerNode, format: busFormat)
+        lowPass.bands[0].filterType = .lowPass
+        lowPass.bands[0].bypass = false
+        resetDrumEffects()
+
         // One set of voices per drum, each connected in that file's own format.
         for sound in DrumSound.allCases {
             do {
@@ -82,7 +106,7 @@ final class BeatPlayer: BeatPlaying {
                 voices[sound] = (0..<Self.voicesPerDrum).map { _ in
                     let node = AVAudioPlayerNode()
                     engine.attach(node)
-                    engine.connect(node, to: engine.mainMixerNode, format: buffer.format)
+                    engine.connect(node, to: drumBus, format: buffer.format)
                     return node
                 }
                 nextVoice[sound] = 0
@@ -116,7 +140,7 @@ final class BeatPlayer: BeatPlaying {
         if !node.isPlaying { node.play() }
     }
 
-    func startLoop(_ pattern: DrumPattern, bpm: Double) {
+    func startLoop(_ pattern: DrumPattern, bpm: Double, startDelay: TimeInterval) {
         stop()
         guard startEngineIfNeeded(), !pattern.steps.isEmpty else { return }
         self.pattern = pattern
@@ -127,9 +151,10 @@ final class BeatPlayer: BeatPlaying {
         loopID += 1
         isLooping = true
 
-        // Start every node together, 0.1 s from now. From then on, each
-        // node's own timeline counts samples from this shared moment.
-        let delay = AVAudioTime.hostTime(forSeconds: 0.1)
+        // Start every node together, startDelay from now (booked on the
+        // audio clock). From then on, each node's own timeline counts
+        // samples from this shared moment.
+        let delay = AVAudioTime.hostTime(forSeconds: max(startDelay, 0.05))
         let startTime = AVAudioTime(hostTime: mach_absolute_time() + delay)
         for node in allNodes {
             node.stop()
@@ -147,11 +172,48 @@ final class BeatPlayer: BeatPlaying {
     func stop() {
         loopID += 1
         isLooping = false
+        isPaused = false
+        pausedPlayheadBeats = nil
         currentStep = nil
+        currentStepSeconds = nil
         guard isSetUp else { return }
         for node in allNodes {
             node.stop()
         }
+    }
+
+    /// Freezes everything where it is. Pausing the engine pauses the audio
+    /// clock itself, so every queued hit keeps its place.
+    func pause() {
+        guard isLooping, !isPaused else { return }
+        pausedPlayheadBeats = playheadBeats
+        engine.pause()
+        isPaused = true
+    }
+
+    /// Carries on from exactly where pause stopped.
+    func resume() {
+        guard isPaused else { return }
+        isPaused = false
+        pausedPlayheadBeats = nil
+        startEngineIfNeeded()
+    }
+
+    func setDrumEffects(pitchRatio: Double, lowPassCutoff: Double) {
+        setUpIfNeeded()
+        pitchShift.bypass = false
+        lowPass.bypass = false
+        // Pitch is in cents: 1200 cents is one octave.
+        pitchShift.pitch = Float(1200 * log2(max(pitchRatio, 0.01)))
+        lowPass.bands[0].frequency = Float(min(max(lowPassCutoff, 20), 20_000))
+    }
+
+    func resetDrumEffects() {
+        pitchShift.rate = 1
+        pitchShift.pitch = 0
+        lowPass.bands[0].frequency = Self.openCutoff
+        pitchShift.bypass = true
+        lowPass.bypass = true
     }
 
     // MARK: - Scheduling
@@ -201,6 +263,7 @@ final class BeatPlayer: BeatPlaying {
     private func tickWasRendered(stepNumber: Int, step: Int, at seconds: TimeInterval, loopID id: Int) {
         guard isLooping, id == loopID else { return }
         currentStep = step
+        currentStepSeconds = seconds
         onStep?(step)
         fillQueue(afterStep: stepNumber, at: seconds)
     }
@@ -219,6 +282,7 @@ final class BeatPlayer: BeatPlaying {
     // MARK: - Playhead
 
     var playheadBeats: Double? {
+        if isPaused { return pausedPlayheadBeats }
         guard isLooping, let now = heardSeconds, !stepTimes.isEmpty else { return nil }
         // The last queued step that has already started.
         guard let index = stepTimes.lastIndex(where: { $0.seconds <= now }) else { return 0 }
@@ -241,7 +305,9 @@ final class BeatPlayer: BeatPlaying {
         let sinceRender = AVAudioTime.seconds(forHostTime: mach_absolute_time())
             - AVAudioTime.seconds(forHostTime: render.hostTime)
         let rendered = Double(player.sampleTime) / player.sampleRate
-        return rendered + min(max(sinceRender, 0), 0.05) - session.outputLatency
+        // The pitch shifter delays the drums a little while it is on.
+        let effectDelay = pitchShift.bypass ? 0 : pitchShift.auAudioUnit.latency
+        return rendered + min(max(sinceRender, 0), 0.05) - session.outputLatency - effectDelay
     }
 
     private static func clamped(_ bpm: Double) -> Double {
