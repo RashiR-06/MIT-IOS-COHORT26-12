@@ -32,6 +32,8 @@ final class BeatPlayer: BeatPlaying {
     @ObservationIgnored private let clockNode = AVAudioPlayerNode()
     @ObservationIgnored private var tickBuffer: AVAudioPCMBuffer?
     @ObservationIgnored private var configObserver: NSObjectProtocol?
+    /// Audio is set up on first use, not at app launch.
+    @ObservationIgnored private var isSetUp = false
 
     // Loop state.
     @ObservationIgnored private var pattern = DrumPattern.lessonGroove
@@ -41,9 +43,26 @@ final class BeatPlayer: BeatPlaying {
     /// Changes on every start and stop, so ticks from an old loop are ignored.
     @ObservationIgnored private var loopID = 0
 
+    /// Cheap: only listens for notifications. No audio starts here, so app
+    /// launch is never held up by the audio session or engine.
     init() {
         session.onMustStop = { [weak self] in self?.stop() }
-        session.activate()
+
+        // A route or sample-rate change stops the engine; restart it.
+        configObserver = NotificationCenter.default.addObserver(
+            forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.stop()
+                self?.startEngineIfNeeded()
+            }
+        }
+    }
+
+    /// Loads the drums and builds the node graph the first time audio is needed.
+    private func setUpIfNeeded() {
+        guard !isSetUp else { return }
+        isSetUp = true
 
         // One set of voices per drum, each connected in that file's own format.
         for sound in DrumSound.allCases {
@@ -72,21 +91,14 @@ final class BeatPlayer: BeatPlaying {
             engine.connect(clockNode, to: engine.mainMixerNode, format: format)
         }
 
-        // A route or sample-rate change stops the engine; restart it.
-        configObserver = NotificationCenter.default.addObserver(
-            forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated {
-                self?.stop()
-                self?.startEngineIfNeeded()
-            }
-        }
-
         engine.prepare()
-        startEngineIfNeeded()
     }
 
     // MARK: - BeatPlaying
+
+    func prepare() {
+        startEngineIfNeeded()
+    }
 
     func play(_ sound: DrumSound) {
         guard startEngineIfNeeded(), let buffer = samples[sound], let node = takeVoice(for: sound) else { return }
@@ -122,6 +134,7 @@ final class BeatPlayer: BeatPlaying {
         loopID += 1
         isLooping = false
         currentStep = nil
+        guard isSetUp else { return }
         for node in allNodes {
             node.stop()
         }
@@ -169,8 +182,10 @@ final class BeatPlayer: BeatPlaying {
 
     // MARK: - Helpers
 
+    /// Every attached player node (the clock only if it was set up).
     private var allNodes: [AVAudioPlayerNode] {
-        voices.values.flatMap { $0 } + [clockNode]
+        let drums = voices.values.flatMap { $0 }
+        return clockNode.engine == nil ? drums : drums + [clockNode]
     }
 
     /// Picks the next voice for a drum, in turn.
@@ -200,6 +215,7 @@ final class BeatPlayer: BeatPlaying {
 
     @discardableResult
     private func startEngineIfNeeded() -> Bool {
+        setUpIfNeeded()
         if engine.isRunning { return true }
         session.activate()
         do {

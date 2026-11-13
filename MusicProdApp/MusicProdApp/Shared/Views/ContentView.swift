@@ -1,19 +1,36 @@
 import SwiftUI
 
 /// Root view. For now it opens Lesson 1.1 directly and shows a blank
-/// screen once the learner leaves or finishes it. In debug builds it can
-/// show the audio test screen instead (see DebugFlags).
+/// screen once the learner leaves or finishes it. Debug builds also show
+/// an "Audio test" button that opens the audio test screen (see DebugFlags).
 struct ContentView: View {
     let beatPlayer: any BeatPlaying
     @State private var lessonViewModel = LessonViewModel(content: .lesson1_1)
+    @State private var showAudioTest = false
 
     var body: some View {
-        if DebugFlags.showAudioDebug {
+        Group {
+            if lessonViewModel.hasExited {
+                TemporaryBlankView()
+            } else {
+                LessonView(viewModel: lessonViewModel)
+            }
+        }
+        .overlay(alignment: .bottomLeading) {
+            if DebugFlags.showAudioDebug {
+                Button {
+                    showAudioTest = true
+                } label: {
+                    Text("Audio test")
+                        .font(.headline)
+                        .foregroundStyle(AppColor.textPrimary)
+                }
+                .buttonStyle(.glass)
+                .controlSize(.large)
+            }
+        }
+        .fullScreenCover(isPresented: $showAudioTest) {
             AudioDebugView(beatPlayer: beatPlayer)
-        } else if lessonViewModel.hasExited {
-            TemporaryBlankView()
-        } else {
-            LessonView(viewModel: lessonViewModel)
         }
     }
 }

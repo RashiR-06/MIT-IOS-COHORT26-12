@@ -20,6 +20,9 @@ protocol BeatPlaying: AnyObject {
     /// or headphones. Bluetooth makes this much larger.
     var outputLatency: TimeInterval { get }
 
+    /// Loads the drums and starts audio so the first hit is not delayed.
+    /// Optional: play and startLoop do this themselves if needed.
+    func prepare()
     /// Plays one drum straight away.
     func play(_ sound: DrumSound)
     /// Loops a pattern at the given tempo, timed by the audio clock.
