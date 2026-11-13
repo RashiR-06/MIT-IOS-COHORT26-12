@@ -6,27 +6,26 @@ import SwiftUI
 struct ContentView: View {
     let beatPlayer: any BeatPlaying
     @State private var lessonViewModel = LessonViewModel(content: .lesson1_1)
+    @State private var introViewModel: IntroViewModel
     @State private var showAudioTest = false
+
+    init(beatPlayer: any BeatPlaying) {
+        self.beatPlayer = beatPlayer
+        _introViewModel = State(initialValue: IntroViewModel(beatPlayer: beatPlayer))
+    }
 
     var body: some View {
         Group {
             if lessonViewModel.hasExited {
                 TemporaryBlankView()
             } else {
-                LessonView(viewModel: lessonViewModel)
+                LessonView(viewModel: lessonViewModel, introViewModel: introViewModel)
             }
         }
-        .overlay(alignment: .bottomLeading) {
+        // Bottom centre: the corners hold the lesson's own buttons.
+        .overlay(alignment: .bottom) {
             if DebugFlags.showAudioDebug {
-                Button {
-                    showAudioTest = true
-                } label: {
-                    Text("Audio test")
-                        .font(.headline)
-                        .foregroundStyle(AppColor.textPrimary)
-                }
-                .buttonStyle(.glass)
-                .controlSize(.large)
+                GlassTextButton(title: "Audio test") { showAudioTest = true }
             }
         }
         .fullScreenCover(isPresented: $showAudioTest) {

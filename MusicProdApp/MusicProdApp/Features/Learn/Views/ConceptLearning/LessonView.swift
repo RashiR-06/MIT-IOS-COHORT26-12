@@ -1,9 +1,11 @@
 import SwiftUI
 
-/// The shared lesson screen: top bar, the current step, and the primary
-/// button. The step area is a temporary label until real screens exist.
+/// The shared lesson screen: top bar, then the current step. Steps with a
+/// real screen (the Intro) show it; the rest show a temporary label and
+/// the primary button.
 struct LessonView: View {
     @Bindable var viewModel: LessonViewModel
+    let introViewModel: IntroViewModel
 
     var body: some View {
         VStack(spacing: 0) {
@@ -15,14 +17,20 @@ struct LessonView: View {
                 onClose: viewModel.close
             )
             .padding(.top, 11)
-            Spacer()
-            Text(viewModel.currentStep.name)
-                .font(.largeTitle)
-                .foregroundStyle(AppColor.textSecondary)
-            Spacer()
-            HStack {
+
+            switch viewModel.currentStep.screen {
+            case .intro:
+                IntroView(viewModel: introViewModel, onFixTheDrums: viewModel.next)
+            case .placeholder:
                 Spacer()
-                PrimaryButton(title: viewModel.currentStep.primaryButtonTitle, action: viewModel.next)
+                Text(viewModel.currentStep.name)
+                    .font(.largeTitle)
+                    .foregroundStyle(AppColor.textSecondary)
+                Spacer()
+                HStack {
+                    Spacer()
+                    PrimaryButton(title: viewModel.currentStep.primaryButtonTitle, action: viewModel.next)
+                }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -40,5 +48,6 @@ struct LessonView: View {
 }
 
 #Preview(traits: .landscapeLeft) {
-    LessonView(viewModel: LessonViewModel(content: .lesson1_1))
+    LessonView(viewModel: LessonViewModel(content: .lesson1_1),
+               introViewModel: IntroViewModel(beatPlayer: BeatPlayer()))
 }
