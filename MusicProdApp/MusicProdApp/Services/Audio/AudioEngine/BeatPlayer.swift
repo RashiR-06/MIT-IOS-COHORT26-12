@@ -45,7 +45,11 @@ final class BeatPlayer: BeatPlaying {
     // Loop state.
     @ObservationIgnored private var pattern = DrumPattern.lessonGroove
     @ObservationIgnored private var nextStepNumber = 0
-    @ObservationIgnored private var nextStepSeconds: TimeInterval = 0
+    /// Time of the most recently queued step, or nil before the first one.
+    @ObservationIgnored private var lastQueuedSeconds: TimeInterval?
+    /// The most recent queued steps and their exact times, used to work out
+    /// the playhead position between steps.
+    @ObservationIgnored private var stepTimes: [(step: Int, seconds: TimeInterval)] = []
     /// Changes on every start and stop, so ticks from an old loop are ignored.
     @ObservationIgnored private var loopID = 0
 
@@ -118,7 +122,8 @@ final class BeatPlayer: BeatPlaying {
         self.pattern = pattern
         self.bpm = Self.clamped(bpm)
         nextStepNumber = 0
-        nextStepSeconds = 0
+        lastQueuedSeconds = nil
+        stepTimes = []
         loopID += 1
         isLooping = true
 
@@ -131,7 +136,7 @@ final class BeatPlayer: BeatPlaying {
             node.play(at: startTime)
         }
 
-        fillQueue(after: 0)
+        fillQueue(afterStep: -1, at: 0)
     }
 
     func setTempo(_ bpm: Double) {
@@ -154,8 +159,9 @@ final class BeatPlayer: BeatPlaying {
     /// Queues every hit of the next step, plus a clock tick, at the step's
     /// exact time on the audio clock.
     private func scheduleNextStep() {
-        let step = nextStepNumber % pattern.steps.count
-        let seconds = nextStepSeconds
+        let stepNumber = nextStepNumber
+        let step = stepNumber % pattern.steps.count
+        let seconds = upcomingStepSeconds
 
         for hit in pattern.steps[step] {
             guard let buffer = sample(hit.sound, volume: hit.volume),
@@ -171,28 +177,71 @@ final class BeatPlayer: BeatPlaying {
                                      completionCallbackType: .dataRendered) { [weak self] _ in
                 // Arrives on an audio thread; hop to the main thread.
                 guard let self else { return }
-                Task { @MainActor in self.tickWasRendered(step: step, at: seconds, loopID: id) }
+                Task { @MainActor in
+                    self.tickWasRendered(stepNumber: stepNumber, step: step, at: seconds, loopID: id)
+                }
             }
         }
 
+        stepTimes.append((step: stepNumber, seconds: seconds))
+        if stepTimes.count > 32 { stepTimes.removeFirst() }
+
         nextStepNumber += 1
-        nextStepSeconds += DrumPattern.stepDuration(bpm: bpm)
+        lastQueuedSeconds = seconds
     }
 
-    private func tickWasRendered(step: Int, at seconds: TimeInterval, loopID id: Int) {
+    /// When the next step would play: one step (at today's tempo) after the
+    /// last queued step. Worked out at queue time, so a new tempo always
+    /// starts at the next step that is not queued yet.
+    private var upcomingStepSeconds: TimeInterval {
+        guard let last = lastQueuedSeconds else { return 0 }
+        return last + pattern.stepDuration(bpm: bpm)
+    }
+
+    private func tickWasRendered(stepNumber: Int, step: Int, at seconds: TimeInterval, loopID id: Int) {
         guard isLooping, id == loopID else { return }
         currentStep = step
         onStep?(step)
-        fillQueue(after: seconds)
+        fillQueue(afterStep: stepNumber, at: seconds)
     }
 
-    /// Queues steps until one step plus the safety margin past `seconds`
-    /// (the time of the step just rendered). Uses the current tempo.
-    private func fillQueue(after seconds: TimeInterval) {
-        let horizon = seconds + DrumPattern.stepDuration(bpm: bpm) + Self.safetyMargin
-        while nextStepSeconds < horizon {
+    /// Tops the queue up after a step has been rendered. Two rules:
+    /// 1. Always keep at least one step queued after it, so the ticks (and
+    ///    the loop) can never run out, even after a big tempo jump.
+    /// 2. Keep about one step plus the safety margin of drums queued.
+    private func fillQueue(afterStep stepNumber: Int, at seconds: TimeInterval) {
+        let horizon = seconds + pattern.stepDuration(bpm: bpm) + Self.safetyMargin
+        while nextStepNumber <= stepNumber + 1 || upcomingStepSeconds < horizon {
             scheduleNextStep()
         }
+    }
+
+    // MARK: - Playhead
+
+    var playheadBeats: Double? {
+        guard isLooping, let now = heardSeconds, !stepTimes.isEmpty else { return nil }
+        // The last queued step that has already started.
+        guard let index = stepTimes.lastIndex(where: { $0.seconds <= now }) else { return 0 }
+        let current = stepTimes[index]
+        // The next step's real time, so a tempo change bends the motion
+        // at the step boundary instead of jumping.
+        let nextSeconds = index + 1 < stepTimes.count
+            ? stepTimes[index + 1].seconds
+            : current.seconds + pattern.stepDuration(bpm: bpm)
+        let fraction = min(max((now - current.seconds) / (nextSeconds - current.seconds), 0), 1)
+        return (Double(current.step) + fraction) / Double(pattern.stepsPerBeat)
+    }
+
+    /// The loop's time that is reaching your ears now, on the clock node's
+    /// timeline: the last rendered moment, plus the time since then, minus
+    /// the output latency.
+    private var heardSeconds: TimeInterval? {
+        guard let render = clockNode.lastRenderTime, render.isHostTimeValid,
+              let player = clockNode.playerTime(forNodeTime: render) else { return nil }
+        let sinceRender = AVAudioTime.seconds(forHostTime: mach_absolute_time())
+            - AVAudioTime.seconds(forHostTime: render.hostTime)
+        let rendered = Double(player.sampleTime) / player.sampleRate
+        return rendered + min(max(sinceRender, 0), 0.05) - session.outputLatency
     }
 
     private static func clamped(_ bpm: Double) -> Double {

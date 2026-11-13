@@ -21,6 +21,11 @@ protocol BeatPlaying: AnyObject {
     var currentStep: Int? { get }
     /// The loop's tempo in beats per minute.
     var bpm: Double { get }
+    /// Where the loop is right now, in beats since it started (2.5 means
+    /// halfway through the third beat). Read from the audio clock and
+    /// matched to what you hear. Nil when stopped. Read it every frame to
+    /// move visuals smoothly.
+    var playheadBeats: Double? { get }
     /// Called on the main thread each time a step is heard.
     var onStep: ((Int) -> Void)? { get set }
     /// Seconds between the app producing sound and it reaching the speaker
