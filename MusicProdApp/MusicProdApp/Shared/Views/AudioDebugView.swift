@@ -1,9 +1,10 @@
 import SwiftUI
 
 /// Temporary screen for testing the drum sounds and the loop on a phone.
-/// Shown only when DebugFlags.showAudioDebug is true.
+/// Opened from the "Audio test" button when DebugFlags.showAudioDebug is true.
 struct AudioDebugView: View {
     let beatPlayer: any BeatPlaying
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         VStack(spacing: 32) {
@@ -34,7 +35,22 @@ struct AudioDebugView: View {
                 .foregroundStyle(AppColor.textSecondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .overlay(alignment: .topTrailing) {
+            Button {
+                beatPlayer.stop()
+                dismiss()
+            } label: {
+                Text("Close")
+                    .font(.headline)
+                    .foregroundStyle(AppColor.textPrimary)
+            }
+            .buttonStyle(.glass)
+            .controlSize(.large)
+            .padding(.top, 11)
+        }
         .background(AppColor.background)
+        // Audio starts here, not at app launch.
+        .onAppear { beatPlayer.prepare() }
     }
 }
 
