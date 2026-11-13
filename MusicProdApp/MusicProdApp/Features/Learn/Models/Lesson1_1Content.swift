@@ -6,7 +6,7 @@ extension LessonContent {
     static let lesson1_1 = LessonContent(
         title: "1.1  Tempo and Beats",
         steps: [
-            LessonStep(name: "Intro", primaryButtonTitle: "Fix the drums"),
+            LessonStep(name: "Intro", primaryButtonTitle: "Fix the drums", screen: .intro),
             LessonStep(name: "Learn 1", primaryButtonTitle: "Next"),
             LessonStep(name: "Learn 2", primaryButtonTitle: "Next"),
             LessonStep(name: "Learn 3", primaryButtonTitle: "Next"),

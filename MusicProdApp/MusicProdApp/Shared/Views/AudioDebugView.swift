@@ -19,11 +19,11 @@ struct AudioDebugView: View {
         ScrollView {
             VStack(spacing: 16) {
                 HStack {
-                    glassTextButton("Style: \(laneStyles[laneStyleIndex].name)") {
+                    GlassTextButton(title: "Style: \(laneStyles[laneStyleIndex].name)") {
                         laneStyleIndex = (laneStyleIndex + 1) % laneStyles.count
                     }
                     Spacer()
-                    glassTextButton("Close") {
+                    GlassTextButton(title: "Close") {
                         beatPlayer.stop()
                         dismiss()
                     }
@@ -49,8 +49,14 @@ struct AudioDebugView: View {
         .onChange(of: bpm) { _, newValue in
             beatPlayer.setTempo(Double(newValue))
         }
-        // Audio starts here, not at app launch.
-        .onAppear { beatPlayer.prepare() }
+        // Audio starts here, not at app launch. Anything another screen left
+        // running (the Intro's loop and effects) is stopped and reset first.
+        .onAppear {
+            beatPlayer.onStep = nil
+            beatPlayer.stop()
+            beatPlayer.resetDrumEffects()
+            beatPlayer.prepare()
+        }
     }
 
     private var controls: some View {
@@ -68,7 +74,7 @@ struct AudioDebugView: View {
                         beatPlayer.startLoop(.lessonGroove, bpm: Double(bpm))
                     }
                 }
-                glassTextButton(showsZone ? "Hide zone" : "Show zone") {
+                GlassTextButton(title: showsZone ? "Hide zone" : "Show zone") {
                     showsZone.toggle()
                 }
             }
@@ -86,16 +92,6 @@ struct AudioDebugView: View {
                 .font(.headline)
                 .foregroundStyle(AppColor.textSecondary)
         }
-    }
-
-    private func glassTextButton(_ title: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.headline)
-                .foregroundStyle(AppColor.textPrimary)
-        }
-        .buttonStyle(.glass)
-        .controlSize(.large)
     }
 }
 

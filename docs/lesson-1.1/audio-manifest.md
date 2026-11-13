@@ -17,19 +17,19 @@ The sample rates differ on purpose: `DrumSampleLoader` loads each file in its ow
 
 | File | Path | Format | Length | Purpose |
 |---|---|---|---|---|
-| `ref_groove_100bpm.wav` | `docs/lesson-1.1/audio/` | 44.1 kHz, 16-bit, stereo | 7.3 s (3 bars) | How the Learn/Do groove should sound at 100 BPM |
+| `ref_groove_100bpm.wav` | `docs/lesson-1.1/audio/` | 44.1 kHz, 16-bit, stereo | 7.3 s (3 bars) | How the Intro/Learn/Do groove should sound at 100 BPM |
 
-## The groove (`DrumPattern.lessonGroove`)
+## The groove (`DrumPattern.lessonGroove`, also `introGroove`)
 
-8 steps of one eighth note each (one bar of 4/4), same for Learn and Do:
+8 steps of one eighth note each (one bar of 4/4). The same groove is used in the Intro, Learn and Do. It was matched to `ref_groove_100bpm.wav` by mixing our three samples and comparing each eighth note:
 
 | Step | 1 | 1& | 2 | 2& | 3 | 3& | 4 | 4& |
 |---|---|---|---|---|---|---|---|---|
 | Kick | ● | | | | ● | | | |
 | Snare | | | ● | | | | ● | |
-| Closed hat | ● | soft | ● | soft | ● | soft | ● | soft |
+| Closed hat | | ● | | ● | | ● | | ● |
 
-"Soft" hats play at 43% volume. This matches the reference WAV and the Learn mockup. The Do/Finale mockups add a soft kick on 3&; that is deliberately not used.
+Hats play on the off-beats only, at full volume. The reference has no sound on the sixteenths in between and no kick on 3&. (The Do/Finale mockups add a kick on 3&, and the Intro mockup has sixteenth-note hats; neither is used, because the reference WAV wins for sound.) In the Intro the groove then slows from 100 to 52 BPM with lower pitch and a closing low-pass filter (see `IntroTiming`).
 
 ## Mockups
 

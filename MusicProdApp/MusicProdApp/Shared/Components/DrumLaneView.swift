@@ -93,6 +93,12 @@ struct DrumLaneView: View {
     var style: DrumLaneStyle = .practice
     var tint: Color = AppColor.accentCyan
     var label: String = "Drums"
+    /// How far the lane reaches past the safe area on the left, when it is
+    /// drawn edge to edge. The playhead and label move right by this much
+    /// so they stay inside the safe area.
+    var leadingInset: CGFloat = 0
+
+    private var playheadX: CGFloat { style.playheadX + leadingInset }
 
     /// Each clip (rounded box) is 2 bars of 4 beats.
     private static let beatsPerClip = 8
@@ -115,11 +121,11 @@ struct DrumLaneView: View {
         let beatWidth = style.pointsPerBeat
         let clipBeats = Double(Self.beatsPerClip)
         // Only the clips that can be on screen.
-        let first = Int(floor((position - style.playheadX / beatWidth) / clipBeats)) - 1
-        let last = Int(ceil((position + (size.width - style.playheadX) / beatWidth) / clipBeats)) + 1
+        let first = Int(floor((position - playheadX / beatWidth) / clipBeats)) - 1
+        let last = Int(ceil((position + (size.width - playheadX) / beatWidth) / clipBeats)) + 1
 
         for clip in max(first, 0)...max(last, 0) {
-            let clipX = style.playheadX + (Double(clip) * clipBeats - position) * beatWidth
+            let clipX = playheadX + (Double(clip) * clipBeats - position) * beatWidth
             let clipWidth = clipBeats * beatWidth - style.clipGap
             guard clipX < size.width, clipX + clipWidth > 0 else { continue }
 
@@ -140,7 +146,7 @@ struct DrumLaneView: View {
 
     /// The label sticks to the left edge while its clip scrolls past.
     private func drawLabel(in context: inout GraphicsContext, clipX: CGFloat, clipWidth: CGFloat) {
-        let x = min(max(clipX + style.labelInset, style.labelInset), clipX + clipWidth - style.labelRoom)
+        let x = min(max(clipX + style.labelInset, leadingInset + style.labelInset), clipX + clipWidth - style.labelRoom)
         let text = Text(label).font(style.labelFont).foregroundStyle(tint)
         context.draw(text, at: CGPoint(x: x, y: style.labelCenterY), anchor: .leading)
     }
@@ -150,7 +156,7 @@ struct DrumLaneView: View {
             let x = clipX + style.markerOffset + CGFloat(beat) * style.pointsPerBeat
             let isBar = beat % 4 == 0
             let height = isBar ? style.barLineHeight : style.beatLineHeight
-            let opacity = x < style.playheadX ? style.pastBeatLineOpacity : style.upcomingBeatLineOpacity
+            let opacity = x < playheadX ? style.pastBeatLineOpacity : style.upcomingBeatLineOpacity
             context.fill(Path(CGRect(x: x - 0.75, y: style.beatLineTop, width: 1.5, height: height)),
                          with: .color(AppColor.textPrimary.opacity(opacity)))
         }
@@ -162,8 +168,8 @@ struct DrumLaneView: View {
 
         for step in 0..<stepsPerClip {
             let x = clipX + style.markerOffset + CGFloat(step) * stepWidth
-            let played = x < style.playheadX
-            let crossing = played && style.playheadX - x < style.crossingWindow
+            let played = x < playheadX
+            let crossing = played && playheadX - x < style.crossingWindow
             let opacity = crossing ? 1 : (played ? 0.4 : 0.9)
             let color = GraphicsContext.Shading.color(AppColor.textPrimary.opacity(opacity))
             let sounds = pattern.steps[step % pattern.steps.count].map(\.sound)
@@ -189,10 +195,10 @@ struct DrumLaneView: View {
     /// The fixed white playhead (with a knob on top in the Intro style).
     private func drawPlayhead(in context: inout GraphicsContext, size: CGSize) {
         let white = GraphicsContext.Shading.color(AppColor.textPrimary)
-        context.fill(Path(CGRect(x: style.playheadX - 1, y: style.playheadTop,
+        context.fill(Path(CGRect(x: playheadX - 1, y: style.playheadTop,
                                  width: 2, height: size.height - style.playheadTop)), with: white)
         if style.showsPlayheadKnob {
-            context.fill(Path(ellipseIn: CGRect(x: style.playheadX - 6, y: 2, width: 12, height: 12)), with: white)
+            context.fill(Path(ellipseIn: CGRect(x: playheadX - 6, y: 2, width: 12, height: 12)), with: white)
         }
     }
 }
