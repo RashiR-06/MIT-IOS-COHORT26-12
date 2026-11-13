@@ -46,6 +46,9 @@ final class BeatPlayer: BeatPlaying {
     @ObservationIgnored private var pattern = DrumPattern.lessonGroove
     @ObservationIgnored private var nextStepNumber = 0
     @ObservationIgnored private var nextStepSeconds: TimeInterval = 0
+    /// The most recent queued steps and their exact times, used to work out
+    /// the playhead position between steps.
+    @ObservationIgnored private var stepTimes: [(step: Int, seconds: TimeInterval)] = []
     /// Changes on every start and stop, so ticks from an old loop are ignored.
     @ObservationIgnored private var loopID = 0
 
@@ -119,6 +122,7 @@ final class BeatPlayer: BeatPlaying {
         self.bpm = Self.clamped(bpm)
         nextStepNumber = 0
         nextStepSeconds = 0
+        stepTimes = []
         loopID += 1
         isLooping = true
 
@@ -175,8 +179,11 @@ final class BeatPlayer: BeatPlaying {
             }
         }
 
+        stepTimes.append((step: nextStepNumber, seconds: seconds))
+        if stepTimes.count > 32 { stepTimes.removeFirst() }
+
         nextStepNumber += 1
-        nextStepSeconds += DrumPattern.stepDuration(bpm: bpm)
+        nextStepSeconds += pattern.stepDuration(bpm: bpm)
     }
 
     private func tickWasRendered(step: Int, at seconds: TimeInterval, loopID id: Int) {
@@ -189,10 +196,38 @@ final class BeatPlayer: BeatPlaying {
     /// Queues steps until one step plus the safety margin past `seconds`
     /// (the time of the step just rendered). Uses the current tempo.
     private func fillQueue(after seconds: TimeInterval) {
-        let horizon = seconds + DrumPattern.stepDuration(bpm: bpm) + Self.safetyMargin
+        let horizon = seconds + pattern.stepDuration(bpm: bpm) + Self.safetyMargin
         while nextStepSeconds < horizon {
             scheduleNextStep()
         }
+    }
+
+    // MARK: - Playhead
+
+    var playheadBeats: Double? {
+        guard isLooping, let now = heardSeconds, !stepTimes.isEmpty else { return nil }
+        // The last queued step that has already started.
+        guard let index = stepTimes.lastIndex(where: { $0.seconds <= now }) else { return 0 }
+        let current = stepTimes[index]
+        // The next step's real time, so a tempo change bends the motion
+        // at the step boundary instead of jumping.
+        let nextSeconds = index + 1 < stepTimes.count
+            ? stepTimes[index + 1].seconds
+            : current.seconds + pattern.stepDuration(bpm: bpm)
+        let fraction = min(max((now - current.seconds) / (nextSeconds - current.seconds), 0), 1)
+        return (Double(current.step) + fraction) / Double(pattern.stepsPerBeat)
+    }
+
+    /// The loop's time that is reaching your ears now, on the clock node's
+    /// timeline: the last rendered moment, plus the time since then, minus
+    /// the output latency.
+    private var heardSeconds: TimeInterval? {
+        guard let render = clockNode.lastRenderTime, render.isHostTimeValid,
+              let player = clockNode.playerTime(forNodeTime: render) else { return nil }
+        let sinceRender = AVAudioTime.seconds(forHostTime: mach_absolute_time())
+            - AVAudioTime.seconds(forHostTime: render.hostTime)
+        let rendered = Double(player.sampleTime) / player.sampleRate
+        return rendered + min(max(sinceRender, 0), 0.05) - session.outputLatency
     }
 
     private static func clamped(_ bpm: Double) -> Double {

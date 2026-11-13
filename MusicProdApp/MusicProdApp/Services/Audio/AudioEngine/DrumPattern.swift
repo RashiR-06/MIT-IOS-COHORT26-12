@@ -6,15 +6,17 @@ struct DrumHit {
     let volume: Float
 }
 
-/// A looping drum pattern. Each step is one eighth note, so 8 steps make
-/// one bar of 4/4. Change the data to make a new groove; the player stays
-/// the same.
+/// A looping drum pattern. By default each step is one eighth note, so 8
+/// steps make one bar of 4/4. Change the data to make a new groove; the
+/// player stays the same.
 struct DrumPattern {
     let steps: [[DrumHit]]
+    /// How many steps make one beat: 2 for eighth notes, 4 for sixteenths.
+    var stepsPerBeat = 2
 
-    /// Length of one step in seconds: an eighth note is half a beat.
-    static func stepDuration(bpm: Double) -> TimeInterval {
-        60 / bpm / 2
+    /// Length of one step in seconds at a given tempo.
+    func stepDuration(bpm: Double) -> TimeInterval {
+        60 / bpm / Double(stepsPerBeat)
     }
 }
 
