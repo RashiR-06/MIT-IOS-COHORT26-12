@@ -27,6 +27,13 @@ enum BeatTiming {
         seconds - Double(nearestBeat(to: seconds, beatDuration: beatDuration)) * beatDuration
     }
 
+    /// Where a beat falls in its bar: 0 is beat 1, up to beatsPerBar − 1.
+    /// Works for negative beats too (beat −1 is the last beat of the bar
+    /// before), so a tap just before the loop starts still has a place.
+    static func beatInBar(_ beat: Int, beatsPerBar: Int) -> Int {
+        ((beat % beatsPerBar) + beatsPerBar) % beatsPerBar
+    }
+
     /// An offset as whole milliseconds, without its sign (0.1404 → 140).
     static func milliseconds(_ offset: TimeInterval) -> Int {
         Int((abs(offset) * 1000).rounded())

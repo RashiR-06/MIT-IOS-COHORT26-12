@@ -38,8 +38,7 @@ final class DoOneViewModel {
                               detail: "Nice timing. You found the pulse.", tone: .good)
         }
         if needsPlay {
-            return PadMessage(symbol: "play.fill", title: "Press play first",
-                              detail: "The drums start when you press play", tone: .muted)
+            return .pressPlayFirst
         }
         guard let tap = lastTap else {
             return PadMessage(symbol: "hand.point.up.left", title: "Tap here", detail: "on every beat", tone: .plain)
@@ -125,23 +124,4 @@ final class DoOneViewModel {
         tapMarks = []
         restingPosition = 0
     }
-}
-
-/// The pad's feedback: an icon and words, coloured by tone.
-struct PadMessage: Equatable {
-    enum Tone {
-        /// White words, as before the first tap.
-        case plain
-        /// Cyan: on the beat or finished.
-        case good
-        /// Pink: early or late.
-        case bad
-        /// White words with a grey icon: "Press play first".
-        case muted
-    }
-
-    let symbol: String
-    let title: String
-    let detail: String
-    let tone: Tone
 }

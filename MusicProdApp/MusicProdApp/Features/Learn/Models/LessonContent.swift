@@ -6,6 +6,7 @@ enum LessonScreen {
     case placeholder
     case intro
     case doTapPulse
+    case doFindTheOne
 }
 
 /// One screen in a lesson (for example "Intro" or "Do 2").
