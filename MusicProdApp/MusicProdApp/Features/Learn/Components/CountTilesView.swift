@@ -7,14 +7,17 @@ struct CountTileMark: Equatable {
     let isHit: Bool
 }
 
-/// The four 1–2–3–4 count tiles of Do 2 (Figma "Count 1"–"Count 4"). A lit
-/// tile turns cyan with a black number; `light` comes from the audio clock.
+/// The four 1–2–3–4 count tiles of Do 2 and Learn card 1 (Figma "Count 1"–
+/// "Count 4", "Beat 1"–"Beat 4"). A lit tile turns cyan with a black
+/// number; `light` comes from the audio clock.
 struct CountTilesView: View {
     var light: (tile: Int, level: Double)?
     var mark: CountTileMark?
+    var height: CGFloat = 100
+    var spacing: CGFloat = 13
 
     var body: some View {
-        HStack(spacing: 13) {
+        HStack(spacing: spacing) {
             ForEach(0..<4, id: \.self) { tile in
                 let level = light?.tile == tile ? light?.level ?? 0 : 0
                 ZStack {
@@ -36,7 +39,7 @@ struct CountTilesView: View {
                             .offset(y: 35)
                     }
                 }
-                .frame(height: 100)
+                .frame(height: height)
             }
         }
         .accessibilityHidden(true)

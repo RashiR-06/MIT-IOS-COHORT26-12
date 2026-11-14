@@ -7,6 +7,7 @@ struct ContentView: View {
     let beatPlayer: any BeatPlaying
     @State private var lessonViewModel = LessonViewModel(content: .lesson1_1)
     @State private var introViewModel: IntroViewModel
+    @State private var learnViewModel: LearnViewModel
     @State private var doOneViewModel: DoOneViewModel
     @State private var doTwoViewModel: DoTwoViewModel
     @State private var doThreeViewModel: DoThreeViewModel
@@ -16,6 +17,7 @@ struct ContentView: View {
     init(beatPlayer: any BeatPlaying) {
         self.beatPlayer = beatPlayer
         _introViewModel = State(initialValue: IntroViewModel(beatPlayer: beatPlayer))
+        _learnViewModel = State(initialValue: LearnViewModel(beatPlayer: beatPlayer))
         _doOneViewModel = State(initialValue: DoOneViewModel(beatPlayer: beatPlayer))
         _doTwoViewModel = State(initialValue: DoTwoViewModel(beatPlayer: beatPlayer))
         _doThreeViewModel = State(initialValue: DoThreeViewModel(beatPlayer: beatPlayer))
@@ -27,7 +29,7 @@ struct ContentView: View {
             if lessonViewModel.hasExited {
                 TemporaryBlankView()
             } else {
-                LessonView(viewModel: lessonViewModel, introViewModel: introViewModel,
+                LessonView(viewModel: lessonViewModel, introViewModel: introViewModel, learnViewModel: learnViewModel,
                            doOneViewModel: doOneViewModel, doTwoViewModel: doTwoViewModel,
                            doThreeViewModel: doThreeViewModel, finaleViewModel: finaleViewModel)
             }
