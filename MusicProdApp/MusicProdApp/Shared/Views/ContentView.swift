@@ -10,6 +10,7 @@ struct ContentView: View {
     @State private var doOneViewModel: DoOneViewModel
     @State private var doTwoViewModel: DoTwoViewModel
     @State private var doThreeViewModel: DoThreeViewModel
+    @State private var finaleViewModel: FinaleViewModel
     @State private var showAudioTest = false
 
     init(beatPlayer: any BeatPlaying) {
@@ -18,6 +19,7 @@ struct ContentView: View {
         _doOneViewModel = State(initialValue: DoOneViewModel(beatPlayer: beatPlayer))
         _doTwoViewModel = State(initialValue: DoTwoViewModel(beatPlayer: beatPlayer))
         _doThreeViewModel = State(initialValue: DoThreeViewModel(beatPlayer: beatPlayer))
+        _finaleViewModel = State(initialValue: FinaleViewModel(beatPlayer: beatPlayer))
     }
 
     var body: some View {
@@ -27,7 +29,7 @@ struct ContentView: View {
             } else {
                 LessonView(viewModel: lessonViewModel, introViewModel: introViewModel,
                            doOneViewModel: doOneViewModel, doTwoViewModel: doTwoViewModel,
-                           doThreeViewModel: doThreeViewModel)
+                           doThreeViewModel: doThreeViewModel, finaleViewModel: finaleViewModel)
             }
         }
         // Bottom centre: the corners hold the lesson's own buttons.
