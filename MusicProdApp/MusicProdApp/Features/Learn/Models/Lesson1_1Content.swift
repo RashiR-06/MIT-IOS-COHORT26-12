@@ -12,7 +12,7 @@ extension LessonContent {
             LessonStep(name: "Learn 3", primaryButtonTitle: "Next"),
             LessonStep(name: "Do 1", primaryButtonTitle: "Next", screen: .doTapPulse),
             LessonStep(name: "Do 2", primaryButtonTitle: "Next", screen: .doFindTheOne),
-            LessonStep(name: "Do 3", primaryButtonTitle: "Next"),
+            LessonStep(name: "Do 3", primaryButtonTitle: "Next", screen: .doMatchTheBrief),
             LessonStep(name: "Finale", primaryButtonTitle: "Next"),
         ]
     )

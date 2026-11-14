@@ -33,12 +33,12 @@ struct TempoDial: View {
             arc(from: 0, to: 1, radius: Self.arcRadius)
                 .stroke(AppColor.surfaceRaised, style: StrokeStyle(lineWidth: Self.arcWidth, lineCap: .round))
 
-            // Zone, drawn just outside the track.
+            // Zone, a dashed arc just outside the track (Figma: 5.4 pt, 4 on 4 off).
             if let zone {
                 arc(from: Self.fraction(for: zone.lowerBound, in: range),
                     to: Self.fraction(for: zone.upperBound, in: range),
                     radius: Self.zoneRadius)
-                    .stroke(AppColor.textPrimary, style: StrokeStyle(lineWidth: Self.zoneWidth, lineCap: .butt))
+                    .stroke(AppColor.textPrimary, style: StrokeStyle(lineWidth: Self.zoneWidth, lineCap: .butt, dash: [4, 4]))
             }
 
             // Cyan arc from the lowest tempo up to the current one.
