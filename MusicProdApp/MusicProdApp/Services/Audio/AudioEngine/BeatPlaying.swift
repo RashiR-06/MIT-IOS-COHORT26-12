@@ -42,6 +42,12 @@ protocol BeatPlaying: AnyObject {
     func loopSeconds(heardAt uptime: TimeInterval) -> TimeInterval?
     /// Called on the main thread each time a step is played.
     var onStep: ((Int) -> Void)? { get set }
+    /// Called on the main thread when a loop with a play length ends by itself.
+    var onFinish: (() -> Void)? { get set }
+    /// Changes every time a loop starts or stops. A screen can remember it
+    /// when it starts a loop, and later stop only if that loop is still the
+    /// one playing (not one a newer screen has started).
+    var loopID: Int { get }
     /// Seconds between the app producing sound and it reaching the speaker
     /// or headphones. Bluetooth makes this much larger.
     var outputLatency: TimeInterval { get }
@@ -52,8 +58,10 @@ protocol BeatPlaying: AnyObject {
     /// Plays one drum straight away.
     func play(_ sound: DrumSound)
     /// Loops a pattern at the given tempo, timed by the audio clock. The
-    /// first step plays startDelay seconds from now.
-    func startLoop(_ pattern: DrumPattern, bpm: Double, startDelay: TimeInterval)
+    /// first step plays startDelay seconds from now. With a duration, it
+    /// plays only the steps that start before that many seconds, then stops
+    /// by itself and calls onFinish.
+    func startLoop(_ pattern: DrumPattern, bpm: Double, startDelay: TimeInterval, duration: TimeInterval?)
     /// Changes the tempo while the loop keeps playing. It takes effect at
     /// the next step boundary. Clamped to TempoLimits.range.
     func setTempo(_ bpm: Double)
@@ -72,6 +80,11 @@ protocol BeatPlaying: AnyObject {
 extension BeatPlaying {
     /// Loops a pattern starting a tenth of a second from now.
     func startLoop(_ pattern: DrumPattern, bpm: Double) {
-        startLoop(pattern, bpm: bpm, startDelay: 0.1)
+        startLoop(pattern, bpm: bpm, startDelay: 0.1, duration: nil)
+    }
+
+    /// Loops a pattern until stopped.
+    func startLoop(_ pattern: DrumPattern, bpm: Double, startDelay: TimeInterval) {
+        startLoop(pattern, bpm: bpm, startDelay: startDelay, duration: nil)
     }
 }

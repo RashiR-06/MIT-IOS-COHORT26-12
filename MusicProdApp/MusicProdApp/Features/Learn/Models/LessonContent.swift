@@ -5,6 +5,8 @@ import Foundation
 enum LessonScreen {
     case placeholder
     case intro
+    /// One of the three Learn cards (0, 1 or 2), shown in one swipe stack.
+    case learn(card: Int)
     case doTapPulse
     case doFindTheOne
     case doMatchTheBrief

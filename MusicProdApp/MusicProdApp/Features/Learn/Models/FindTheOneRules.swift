@@ -11,8 +11,6 @@ enum FindTheOneRules {
     static var hitsToPass: Int { hitsPerRound * rounds }
     static let beatsPerBar = 4
     static let bpm = 100.0
-    /// How fast a light fades during its beat: gone after 1/1.6 of the beat.
-    static let lightFadeSpeed = 1.6
     /// The "Now without the lights" alert waits this many beats after the
     /// round's last ✓, so the tick is seen first.
     static let roundAlertDelayBeats = 1
@@ -38,11 +36,10 @@ enum FindTheOneRules {
     }
 
     /// Round 1's cue: which tile is lit and how brightly (0–1), from the
-    /// playhead in beats. Full at the start of each beat, then fading.
+    /// playhead in beats (see BeatLight).
     static func light(atBeats beats: Double) -> (tile: Int, level: Double) {
-        let beat = beats.rounded(.down)
-        let tile = BeatTiming.beatInBar(Int(beat), beatsPerBar: beatsPerBar)
-        return (tile, max(0, 1 - (beats - beat) * lightFadeSpeed))
+        let light = BeatLight.light(atBeats: beats, beatsPerBar: beatsPerBar)
+        return (light.index, light.level)
     }
 }
 

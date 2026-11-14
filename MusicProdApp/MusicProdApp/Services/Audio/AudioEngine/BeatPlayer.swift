@@ -22,6 +22,7 @@ final class BeatPlayer: BeatPlaying {
     private(set) var bpm = 100.0
     @ObservationIgnored private(set) var currentStepSeconds: TimeInterval?
     @ObservationIgnored var onStep: ((Int) -> Void)?
+    @ObservationIgnored var onFinish: (() -> Void)?
 
     var outputLatency: TimeInterval { session.outputLatency }
 
@@ -65,7 +66,11 @@ final class BeatPlayer: BeatPlaying {
     /// the playhead position between steps.
     @ObservationIgnored private var stepTimes: [(step: Int, seconds: TimeInterval)] = []
     /// Changes on every start and stop, so ticks from an old loop are ignored.
-    @ObservationIgnored private var loopID = 0
+    @ObservationIgnored private(set) var loopID = 0
+    /// For a loop with a play length: when it ends, and whether its end
+    /// has been booked.
+    @ObservationIgnored private var loopEnd: TimeInterval?
+    @ObservationIgnored private var loopEndQueued = false
 
     /// Cheap: only listens for notifications. No audio starts here, so app
     /// launch is never held up by the audio session or engine.
@@ -140,11 +145,13 @@ final class BeatPlayer: BeatPlaying {
         if !node.isPlaying { node.play() }
     }
 
-    func startLoop(_ pattern: DrumPattern, bpm: Double, startDelay: TimeInterval) {
+    func startLoop(_ pattern: DrumPattern, bpm: Double, startDelay: TimeInterval, duration: TimeInterval?) {
         stop()
         guard startEngineIfNeeded(), !pattern.steps.isEmpty else { return }
         self.pattern = pattern
         self.bpm = Self.clamped(bpm)
+        loopEnd = duration
+        loopEndQueued = false
         nextStepNumber = 0
         lastQueuedSeconds = nil
         stepTimes = []
@@ -275,7 +282,30 @@ final class BeatPlayer: BeatPlaying {
     private func fillQueue(afterStep stepNumber: Int, at seconds: TimeInterval) {
         let horizon = seconds + pattern.stepDuration(bpm: bpm) + Self.safetyMargin
         while nextStepNumber <= stepNumber + 1 || upcomingStepSeconds < horizon {
+            // A loop with a play length queues no hits at or after its end;
+            // a last silent tick at the end stops it.
+            if let end = loopEnd, upcomingStepSeconds >= end - 0.000_1 {
+                if !loopEndQueued { scheduleEnd(at: end) }
+                return
+            }
             scheduleNextStep()
+        }
+    }
+
+    /// Books a silent tick at the loop's end; when it is rendered the loop
+    /// stops and onFinish is called.
+    private func scheduleEnd(at seconds: TimeInterval) {
+        loopEndQueued = true
+        guard let tick = tickBuffer else { return }
+        let id = loopID
+        clockNode.scheduleBuffer(tick, at: Self.time(seconds, rate: tick.format.sampleRate),
+                                 completionCallbackType: .dataRendered) { [weak self] _ in
+            guard let self else { return }
+            Task { @MainActor in
+                guard self.isLooping, id == self.loopID else { return }
+                self.stop()
+                self.onFinish?()
+            }
         }
     }
 
