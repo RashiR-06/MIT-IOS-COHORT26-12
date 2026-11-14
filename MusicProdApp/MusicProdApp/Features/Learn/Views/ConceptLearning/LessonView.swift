@@ -1,11 +1,12 @@
 import SwiftUI
 
 /// The shared lesson screen: top bar, then the current step. Steps with a
-/// real screen (the Intro) show it; the rest show a temporary label and
+/// real screen (the Intro, Do 1) show it; the rest show a temporary label and
 /// the primary button.
 struct LessonView: View {
     @Bindable var viewModel: LessonViewModel
     let introViewModel: IntroViewModel
+    let doOneViewModel: DoOneViewModel
 
     var body: some View {
         VStack(spacing: 0) {
@@ -21,6 +22,8 @@ struct LessonView: View {
             switch viewModel.currentStep.screen {
             case .intro:
                 IntroView(viewModel: introViewModel, onFixTheDrums: viewModel.next)
+            case .doTapPulse:
+                DoOneView(viewModel: doOneViewModel, onNext: viewModel.next)
             case .placeholder:
                 Spacer()
                 Text(viewModel.currentStep.name)
@@ -48,6 +51,8 @@ struct LessonView: View {
 }
 
 #Preview(traits: .landscapeLeft) {
+    let beatPlayer = BeatPlayer()
     LessonView(viewModel: LessonViewModel(content: .lesson1_1),
-               introViewModel: IntroViewModel(beatPlayer: BeatPlayer()))
+               introViewModel: IntroViewModel(beatPlayer: beatPlayer),
+               doOneViewModel: DoOneViewModel(beatPlayer: beatPlayer))
 }

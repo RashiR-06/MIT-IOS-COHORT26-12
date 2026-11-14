@@ -31,6 +31,12 @@ protocol BeatPlaying: AnyObject {
     /// matched to what you hear. Nil when stopped. Read it every frame to
     /// move visuals smoothly.
     var playheadBeats: Double? { get }
+    /// What part of the loop you were hearing at a given moment, in seconds
+    /// since the loop started (beat 1 is at 0). The moment is in seconds
+    /// since the phone started, the same clock as a touch's timestamp, so
+    /// a tap can be judged against the music it was played to. Allows for
+    /// the output latency. Nil when stopped or paused.
+    func loopSeconds(heardAt uptime: TimeInterval) -> TimeInterval?
     /// Called on the main thread each time a step is played.
     var onStep: ((Int) -> Void)? { get set }
     /// Seconds between the app producing sound and it reaching the speaker
