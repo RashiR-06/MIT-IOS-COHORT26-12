@@ -45,7 +45,13 @@ enum IntroTiming {
 
     /// The low-pass filter closes from 16,000 Hz to 2,500 Hz across the slowdown.
     static func lowPassCutoff(at seconds: TimeInterval) -> Double {
-        openCutoff - (openCutoff - closedCutoff) * progress(at: seconds)
+        cutoff(closedness: progress(at: seconds))
+    }
+
+    /// The filter's cutoff for how closed it is: 0 is fully open, 1 is the
+    /// crawl's dull sound. The Finale runs this backwards to open it again.
+    static func cutoff(closedness: Double) -> Double {
+        openCutoff - (openCutoff - closedCutoff) * closedness
     }
 
     static func phase(at seconds: TimeInterval) -> IntroPhase {

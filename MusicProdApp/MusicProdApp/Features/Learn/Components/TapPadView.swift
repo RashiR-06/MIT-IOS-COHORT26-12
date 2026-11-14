@@ -13,7 +13,8 @@ struct PadMessage: Equatable {
         case muted
     }
 
-    let symbol: String
+    /// Nil for words only ("Keep tapping…").
+    let symbol: String?
     let title: String
     let detail: String
     let tone: Tone
@@ -23,46 +24,78 @@ struct PadMessage: Equatable {
                                            detail: "The drums start when you press play", tone: .muted)
 }
 
-/// The tap pad used by the Do activities (Figma "Tap pad"): a charcoal box
-/// with the feedback in the middle and anything extra (Do 1's Early / Late
-/// scale) below it. Reacts the instant a finger lands, with the touch's
-/// timestamp.
-struct TapPadView<Accessory: View>: View {
-    let message: PadMessage
+/// The tap pad used by the Do activities and the Finale (Figma "Tap pad"):
+/// a charcoal box with feedback in the middle. Reacts the instant a finger
+/// lands, with the touch's timestamp. The Finale's pad is shorter and gets a
+/// coloured border for its results.
+struct TapPadView<Content: View>: View {
+    var height: CGFloat = 128
+    var border: Color? = nil
+    let accessibilityLabel: String
     let onTouchDown: (TimeInterval) -> Void
-    @ViewBuilder let accessory: Accessory
+    @ViewBuilder let content: Content
 
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 18)
                 .fill(AppColor.surface)
-
-            VStack(spacing: 8) {
-                HStack(spacing: 8) {
-                    Image(systemName: message.symbol)
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(message.tone.iconColor)
-                    Text(message.title)
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(message.tone.titleColor)
-                }
-                Text(message.detail)
-                    .font(.system(size: 13))
-                    .foregroundStyle(AppColor.textSecondary)
-                accessory
+            if let border {
+                RoundedRectangle(cornerRadius: 18)
+                    .strokeBorder(border, lineWidth: 1.5)
             }
-            .allowsHitTesting(false)
 
-            TouchDownArea(accessibilityLabel: "Tap pad. \(message.title). \(message.detail)",
-                          onTouchDown: onTouchDown)
+            content
+                .allowsHitTesting(false)
+
+            TouchDownArea(accessibilityLabel: "Tap pad. \(accessibilityLabel)", onTouchDown: onTouchDown)
         }
-        .frame(height: 128)
+        .frame(height: height)
     }
 }
 
-extension TapPadView where Accessory == EmptyView {
-    init(message: PadMessage, onTouchDown: @escaping (TimeInterval) -> Void) {
-        self.init(message: message, onTouchDown: onTouchDown) { EmptyView() }
+/// The usual pad feedback: icon and title, the detail line, and anything
+/// extra below (Do 1's Early / Late scale).
+struct PadMessageView<Accessory: View>: View {
+    let message: PadMessage
+    var spacing: CGFloat = 8
+    @ViewBuilder let accessory: Accessory
+
+    var body: some View {
+        VStack(spacing: spacing) {
+            HStack(spacing: 8) {
+                if let symbol = message.symbol {
+                    Image(systemName: symbol)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(message.tone.iconColor)
+                }
+                Text(message.title)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(message.tone.titleColor)
+            }
+            Text(message.detail)
+                .font(.system(size: 13))
+                .foregroundStyle(AppColor.textSecondary)
+            accessory
+        }
+    }
+}
+
+extension TapPadView {
+    /// A pad showing a PadMessage, with something extra below it.
+    init<Accessory: View>(message: PadMessage, height: CGFloat = 128, border: Color? = nil,
+                          spacing: CGFloat = 8, onTouchDown: @escaping (TimeInterval) -> Void,
+                          @ViewBuilder accessory: () -> Accessory) where Content == PadMessageView<Accessory> {
+        self.init(height: height, border: border, accessibilityLabel: "\(message.title). \(message.detail)",
+                  onTouchDown: onTouchDown) {
+            PadMessageView(message: message, spacing: spacing, accessory: accessory)
+        }
+    }
+
+    /// A pad showing a PadMessage.
+    init(message: PadMessage, height: CGFloat = 128, border: Color? = nil, spacing: CGFloat = 8,
+         onTouchDown: @escaping (TimeInterval) -> Void) where Content == PadMessageView<EmptyView> {
+        self.init(message: message, height: height, border: border, spacing: spacing,
+                  onTouchDown: onTouchDown) { EmptyView() }
     }
 }
 

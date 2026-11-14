@@ -103,9 +103,11 @@ struct DoThreeView: View {
         } else if let message = viewModel.feedback {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
-                    Image(systemName: message.symbol)
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(message.tone.iconColor)
+                    if let symbol = message.symbol {
+                        Image(systemName: symbol)
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(message.tone.iconColor)
+                    }
                     Text(message.title)
                         .font(.system(size: Self.feedbackFontSize, weight: .semibold))
                         .foregroundStyle(message.tone.titleColor)
@@ -145,8 +147,10 @@ struct DoThreeView: View {
             if viewModel.checkAlert != .hidden, let message = viewModel.alertMessage {
                 VStack(spacing: 8) {
                     HStack(spacing: 10) {
-                        Image(systemName: message.symbol)
-                            .foregroundStyle(message.tone.iconColor)
+                        if let symbol = message.symbol {
+                            Image(systemName: symbol)
+                                .foregroundStyle(message.tone.iconColor)
+                        }
                         Text(message.title)
                             .foregroundStyle(message.tone.titleColor)
                     }

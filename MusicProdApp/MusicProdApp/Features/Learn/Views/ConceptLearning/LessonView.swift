@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// The shared lesson screen: top bar, then the current step. Steps with a
-/// real screen (the Intro, Do 1–3) show it; the rest show a temporary label and
+/// real screen (the Intro, Do 1–3, the Finale) show it; the rest show a temporary label and
 /// the primary button.
 struct LessonView: View {
     @Bindable var viewModel: LessonViewModel
@@ -9,6 +9,7 @@ struct LessonView: View {
     let doOneViewModel: DoOneViewModel
     let doTwoViewModel: DoTwoViewModel
     let doThreeViewModel: DoThreeViewModel
+    let finaleViewModel: FinaleViewModel
 
     var body: some View {
         VStack(spacing: 0) {
@@ -30,6 +31,9 @@ struct LessonView: View {
                 DoTwoView(viewModel: doTwoViewModel, onNext: viewModel.next)
             case .doMatchTheBrief:
                 DoThreeView(viewModel: doThreeViewModel, onNext: viewModel.next)
+            case .finale:
+                // The last step: next() shows the "Lesson complete" pop-up.
+                FinaleView(viewModel: finaleViewModel, onFinished: viewModel.next)
             case .placeholder:
                 Spacer()
                 Text(viewModel.currentStep.name)
@@ -62,5 +66,6 @@ struct LessonView: View {
                introViewModel: IntroViewModel(beatPlayer: beatPlayer),
                doOneViewModel: DoOneViewModel(beatPlayer: beatPlayer),
                doTwoViewModel: DoTwoViewModel(beatPlayer: beatPlayer),
-               doThreeViewModel: DoThreeViewModel(beatPlayer: beatPlayer))
+               doThreeViewModel: DoThreeViewModel(beatPlayer: beatPlayer),
+               finaleViewModel: FinaleViewModel(beatPlayer: beatPlayer))
 }
