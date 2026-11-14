@@ -82,6 +82,13 @@ struct DrumLaneStyle {
     )
 }
 
+/// A tap drawn on the lane where it landed, in beats since the loop
+/// started: a cyan dot when on time, a pink cross when off (Figma G · 1b–c).
+struct LaneTapMark {
+    let beats: Double
+    let isOnTime: Bool
+}
+
 /// A drum pattern scrolling right-to-left under a fixed playhead.
 /// Hi-hats are dots, snares and kicks are bars, with a line on every beat
 /// and a taller line at each bar. It only draws what it is given: the
@@ -97,6 +104,8 @@ struct DrumLaneView: View {
     /// drawn edge to edge. The playhead and label move right by this much
     /// so they stay inside the safe area.
     var leadingInset: CGFloat = 0
+    /// Taps to mark along the clip's bottom edge; they scroll with the music.
+    var tapMarks: [LaneTapMark] = []
 
     private var playheadX: CGFloat { style.playheadX + leadingInset }
 
@@ -106,6 +115,7 @@ struct DrumLaneView: View {
     var body: some View {
         Canvas { context, size in
             drawClips(in: &context, size: size)
+            drawTapMarks(in: &context, size: size)
             drawPlayhead(in: &context, size: size)
         }
         .frame(height: style.height)
@@ -192,6 +202,27 @@ struct DrumLaneView: View {
         }
     }
 
+    /// Each tap sits on the clip's bottom edge, at the beat it was played.
+    private func drawTapMarks(in context: inout GraphicsContext, size: CGSize) {
+        let y = style.clipTop + style.clipHeight
+        for mark in tapMarks {
+            let x = playheadX + (mark.beats - position) * style.pointsPerBeat
+            guard x > -10, x < size.width + 10 else { continue }
+            if mark.isOnTime {
+                context.fill(Path(ellipseIn: CGRect(x: x - 5, y: y - 5, width: 10, height: 10)),
+                             with: .color(AppColor.accentCyan))
+            } else {
+                var cross = Path()
+                cross.move(to: CGPoint(x: x - 3, y: y - 3))
+                cross.addLine(to: CGPoint(x: x + 3, y: y + 3))
+                cross.move(to: CGPoint(x: x + 3, y: y - 3))
+                cross.addLine(to: CGPoint(x: x - 3, y: y + 3))
+                context.stroke(cross, with: .color(AppColor.accentPink),
+                               style: StrokeStyle(lineWidth: 2.4, lineCap: .round))
+            }
+        }
+    }
+
     /// The fixed white playhead (with a knob on top in the Intro style).
     private func drawPlayhead(in context: inout GraphicsContext, size: CGSize) {
         let white = GraphicsContext.Shading.color(AppColor.textPrimary)
@@ -206,7 +237,8 @@ struct DrumLaneView: View {
 #Preview(traits: .landscapeLeft) {
     VStack(spacing: 16) {
         DrumLaneView(pattern: .lessonGroove, position: 1.2, style: .intro, tint: AppColor.accentPink)
-        DrumLaneView(pattern: .lessonGroove, position: 0.6, style: .practice)
+        DrumLaneView(pattern: .lessonGroove, position: 0.6, style: .practice,
+                     tapMarks: [LaneTapMark(beats: 0.37, isOnTime: false), LaneTapMark(beats: 0.45, isOnTime: true)])
         DrumLaneView(pattern: .lessonGroove, position: 0.6, style: .finale, label: "Original drums")
     }
     .padding(.horizontal, 59)

@@ -7,11 +7,13 @@ struct ContentView: View {
     let beatPlayer: any BeatPlaying
     @State private var lessonViewModel = LessonViewModel(content: .lesson1_1)
     @State private var introViewModel: IntroViewModel
+    @State private var doOneViewModel: DoOneViewModel
     @State private var showAudioTest = false
 
     init(beatPlayer: any BeatPlaying) {
         self.beatPlayer = beatPlayer
         _introViewModel = State(initialValue: IntroViewModel(beatPlayer: beatPlayer))
+        _doOneViewModel = State(initialValue: DoOneViewModel(beatPlayer: beatPlayer))
     }
 
     var body: some View {
@@ -19,7 +21,8 @@ struct ContentView: View {
             if lessonViewModel.hasExited {
                 TemporaryBlankView()
             } else {
-                LessonView(viewModel: lessonViewModel, introViewModel: introViewModel)
+                LessonView(viewModel: lessonViewModel, introViewModel: introViewModel,
+                           doOneViewModel: doOneViewModel)
             }
         }
         // Bottom centre: the corners hold the lesson's own buttons.

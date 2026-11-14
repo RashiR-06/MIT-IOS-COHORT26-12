@@ -5,6 +5,7 @@ import Foundation
 enum LessonScreen {
     case placeholder
     case intro
+    case doTapPulse
 }
 
 /// One screen in a lesson (for example "Intro" or "Do 2").

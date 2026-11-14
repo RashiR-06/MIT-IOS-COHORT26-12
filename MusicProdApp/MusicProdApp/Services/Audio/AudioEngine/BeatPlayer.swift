@@ -296,18 +296,34 @@ final class BeatPlayer: BeatPlaying {
         return (Double(current.step) + fraction) / Double(pattern.stepsPerBeat)
     }
 
-    /// The loop's time that is reaching your ears now, on the clock node's
-    /// timeline: the last rendered moment, plus the time since then, minus
-    /// the output latency.
+    func loopSeconds(heardAt uptime: TimeInterval) -> TimeInterval? {
+        guard isLooping, !isPaused else { return nil }
+        return heardLoopSeconds(at: uptime)
+    }
+
+    /// The loop's time that is reaching your ears now. The time since the
+    /// last render is kept between 0 and 0.05 s so the playhead never runs
+    /// ahead if rendering stalls.
     private var heardSeconds: TimeInterval? {
+        heardLoopSeconds(at: AVAudioTime.seconds(forHostTime: mach_absolute_time()), sinceRenderLimit: 0...0.05)
+    }
+
+    /// The loop's time that reached your ears at a moment on the host clock
+    /// (seconds since the phone started): the last rendered moment on the
+    /// clock node's timeline, plus the time between that render and the
+    /// moment, minus the output latency.
+    private func heardLoopSeconds(at hostSeconds: TimeInterval,
+                                  sinceRenderLimit: ClosedRange<TimeInterval>? = nil) -> TimeInterval? {
         guard let render = clockNode.lastRenderTime, render.isHostTimeValid,
               let player = clockNode.playerTime(forNodeTime: render) else { return nil }
-        let sinceRender = AVAudioTime.seconds(forHostTime: mach_absolute_time())
-            - AVAudioTime.seconds(forHostTime: render.hostTime)
+        var sinceRender = hostSeconds - AVAudioTime.seconds(forHostTime: render.hostTime)
+        if let limit = sinceRenderLimit {
+            sinceRender = min(max(sinceRender, limit.lowerBound), limit.upperBound)
+        }
         let rendered = Double(player.sampleTime) / player.sampleRate
         // The pitch shifter delays the drums a little while it is on.
         let effectDelay = pitchShift.bypass ? 0 : pitchShift.auAudioUnit.latency
-        return rendered + min(max(sinceRender, 0), 0.05) - session.outputLatency - effectDelay
+        return rendered + sinceRender - session.outputLatency - effectDelay
     }
 
     private static func clamped(_ bpm: Double) -> Double {
