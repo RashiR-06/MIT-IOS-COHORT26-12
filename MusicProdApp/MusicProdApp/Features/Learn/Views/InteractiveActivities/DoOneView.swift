@@ -22,16 +22,9 @@ struct DoOneView: View {
             Spacer(minLength: 8)
 
             HStack {
-                TransportButton(isPlaying: viewModel.isPlaying, action: viewModel.togglePlayPause)
-                    // "Rings the Play button" after a tap before Play.
-                    .overlay {
-                        if viewModel.needsPlay {
-                            Circle()
-                                .stroke(AppColor.accentCyan.opacity(0.35), lineWidth: 4)
-                                .frame(width: 54, height: 54)
-                                .allowsHitTesting(false)
-                        }
-                    }
+                // "Rings the Play button" after a tap before Play.
+                TransportButton(isPlaying: viewModel.isPlaying, showsRing: viewModel.needsPlay,
+                                action: viewModel.togglePlayPause)
                 Spacer()
                 if viewModel.isComplete {
                     PrimaryButton(title: "Next", action: onNext)
@@ -82,48 +75,11 @@ struct DoOneView: View {
     }
 
     private var tapPad: some View {
-        let message = viewModel.padMessage
-        return ZStack {
-            RoundedRectangle(cornerRadius: 18)
-                .fill(AppColor.surface)
-
-            VStack(spacing: 8) {
-                HStack(spacing: 8) {
-                    Image(systemName: message.symbol)
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(message.tone.iconColor)
-                    Text(message.title)
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(message.tone.titleColor)
-                }
-                Text(message.detail)
-                    .font(.system(size: 13))
-                    .foregroundStyle(AppColor.textSecondary)
-                if let tap = viewModel.lastTap {
-                    TimingScaleView(position: tap.scalePosition, isOnTime: tap.isHit)
-                }
+        TapPadView(message: viewModel.padMessage, onTouchDown: viewModel.tap(at:)) {
+            if let tap = viewModel.lastTap {
+                TimingScaleView(position: tap.scalePosition, isOnTime: tap.isHit)
             }
-            .allowsHitTesting(false)
-
-            // Reacts the instant a finger lands, with the touch's timestamp.
-            TouchDownArea(accessibilityLabel: "Tap pad. \(message.title). \(message.detail)",
-                          onTouchDown: viewModel.tap(at:))
         }
-        .frame(height: 128)
-    }
-}
-
-private extension PadMessage.Tone {
-    var titleColor: Color {
-        switch self {
-        case .plain, .muted: AppColor.textPrimary
-        case .good: AppColor.accentCyan
-        case .bad: AppColor.accentPink
-        }
-    }
-
-    var iconColor: Color {
-        self == .muted ? AppColor.textSecondary : titleColor
     }
 }
 
