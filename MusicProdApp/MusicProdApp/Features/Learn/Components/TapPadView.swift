@@ -66,7 +66,7 @@ extension TapPadView where Accessory == EmptyView {
     }
 }
 
-private extension PadMessage.Tone {
+extension PadMessage.Tone {
     var titleColor: Color {
         switch self {
         case .plain, .muted: AppColor.textPrimary

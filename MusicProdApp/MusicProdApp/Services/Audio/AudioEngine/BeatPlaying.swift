@@ -10,6 +10,9 @@ enum DrumSound: CaseIterable {
 /// The tempos the player accepts. Anything outside is clamped.
 enum TempoLimits {
     static let range: ClosedRange<Double> = 40...160
+    /// The lesson's normal tempo. Screens that change the tempo put it back
+    /// to this when they are left.
+    static let normal = 100.0
 }
 
 /// What views and view models use to play drums. Only Services/Audio
